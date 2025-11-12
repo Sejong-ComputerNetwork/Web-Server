@@ -13,7 +13,7 @@ def parse_http_request(data):
 def route(path):
     if path == '/':
         return "<h1>Welcome to My Web Server</h1>"
-    elif path == '/about':
+    elif path == '/submit':
         return "<h1>About This Server</h1>"
     else:
         return "<h1>404 Not Found</h1>"
