@@ -3,76 +3,72 @@ import os
 
 class DataManager:
     def __init__(self, attendance_file="today_attendance.json"):
-        self.attendance_file = attendance_file # Ãâ¼® ±â·Ï¿ë ÆÄÀÏ (»õ·Î »ı±è)
-        self.db_folder = "./db/" # ±âÁ¸ ÇĞ»ı Á¤º¸°¡ ÀÖ´Â Æú´õ
-        self.attendance_data = {} # ¸Ş¸ğ¸®¿¡ ¶ç¿ï Ãâ¼®ºÎ
+        self.attendance_file = attendance_file # ì¶œì„ ê¸°ë¡ìš© íŒŒì¼ (ìƒˆë¡œ ìƒê¹€)
+        self.db_folder = "./db/" # ê¸°ì¡´ í•™ìƒ ì •ë³´ê°€ ìˆëŠ” í´ë”
+        self.attendance_data = {} # ë©”ëª¨ë¦¬ì— ë„ìš¸ ì¶œì„ë¶€
         
-        self._load_attendance() # ¼­¹ö ÄÑÁú ¶§ Ãâ¼®ºÎ ÁØºñ
+        self._load_attendance() # ì„œë²„ ì¼œì§ˆ ë•Œ ì¶œì„ë¶€ ì¤€ë¹„
 
-    # [³»ºÎÇÔ¼ö] ¿À´ÃÀÇ Ãâ¼®ºÎ ÆÄÀÏ ÀĞ¾î¿À±â
+    # [ë‚´ë¶€í•¨ìˆ˜] ì˜¤ëŠ˜ì˜ ì¶œì„ë¶€ íŒŒì¼ ì½ì–´ì˜¤ê¸°
     def _load_attendance(self):
         if not os.path.exists(self.attendance_file):
-            # ÆÄÀÏÀÌ ¾øÀ¸¸é ºó Ãâ¼®ºÎ »ı¼º
+            # íŒŒì¼ì´ ì—†ìœ¼ë©´ ë¹ˆ ì¶œì„ë¶€ ìƒì„±
             self.attendance_data = {}
             self._save_attendance()
-            print(f"[ÃÊ±âÈ­] {self.attendance_file} Ãâ¼®ºÎ¸¦ »õ·Î ¸¸µé¾ú½À´Ï´Ù.")
+            print(f"[ì´ˆê¸°í™”] {self.attendance_file} ì¶œì„ë¶€ë¥¼ ìƒˆë¡œ ë§Œë“¤ì—ˆìŠµë‹ˆë‹¤.")
         else:
             with open(self.attendance_file, 'r', encoding='utf-8') as f:
                 self.attendance_data = json.load(f)
-            print(f"[·Îµå] Ãâ¼® ±â·ÏÀ» ºÒ·¯¿Ô½À´Ï´Ù.")
+            print(f"[ë¡œë“œ] ì¶œì„ ê¸°ë¡ì„ ë¶ˆëŸ¬ì™”ìŠµë‹ˆë‹¤.")
 
-    # [³»ºÎÇÔ¼ö] Ãâ¼®ºÎ ÀúÀåÇÏ±â
+    # [ë‚´ë¶€í•¨ìˆ˜] ì¶œì„ë¶€ ì €ì¥í•˜ê¸°
     def _save_attendance(self):
         with open(self.attendance_file, 'w', encoding='utf-8') as f:
             json.dump(self.attendance_data, f, indent=4, ensure_ascii=False)
 
-    # ==========================================================
-    # [¾÷±×·¹ÀÌµåµÈ ÇÙ½É ±â´É] ±âÁ¸ db Æú´õ¿Í ¿¬µ¿!
-    # ==========================================================
-
-    # 1. ÀÌ¸§ & ÇĞ¹ø È®ÀÎ ÇÔ¼ö (±âÁ¸ db Æú´õ È°¿ë!)
+    # 1. ì´ë¦„ & í•™ë²ˆ í™•ì¸ í•¨ìˆ˜ (ê¸°ì¡´ db í´ë” í™œìš©!)
     def verify_student(self, student_id, name):
-        # 1) db Æú´õ¿¡ ÇØ´ç ÇĞ¹ø ÆÄÀÏÀÌ ÀÖ´ÂÁö È®ÀÎ
+        # 1) db í´ë”ì— í•´ë‹¹ í•™ë²ˆ íŒŒì¼ì´ ìˆëŠ”ì§€ í™•ì¸
         target_file = os.path.join(self.db_folder, f"{student_id}.json")
         
         if os.path.exists(target_file):
-            # 2) ÆÄÀÏÀÌ ÀÖÀ¸¸é ¿­¾î¼­ ÀÌ¸§ÀÌ ¸Â´ÂÁö È®ÀÎ
+            # 2) íŒŒì¼ì´ ìˆìœ¼ë©´ ì—´ì–´ì„œ ì´ë¦„ì´ ë§ëŠ”ì§€ í™•ì¸
             try:
                 with open(target_file, 'r', encoding='utf-8') as f:
                     user_info = json.load(f)
-                    # db ÆÄÀÏ ¾ÈÀÇ "name"°ú ÀÔ·Â¹ŞÀº nameÀÌ °°ÀºÁö?
+                    # db íŒŒì¼ ì•ˆì˜ "name"ê³¼ ì…ë ¥ë°›ì€ nameì´ ê°™ì€ì§€?
                     if user_info.get("name") == name:
-                        return True # ÀÎÁõ ¼º°ø!
+                        return True # ì¸ì¦ ì„±ê³µ!
             except Exception as e:
-                print(f"[¿¡·¯] ÆÄÀÏ ÀĞ±â ½ÇÆĞ: {e}")
+                print(f"[ì—ëŸ¬] íŒŒì¼ ì½ê¸° ì‹¤íŒ¨: {e}")
                 return False
         
-        return False # ÆÄÀÏÀÌ ¾ø°Å³ª ÀÌ¸§ÀÌ Æ²¸²
+        return False # íŒŒì¼ì´ ì—†ê±°ë‚˜ ì´ë¦„ì´ í‹€ë¦¼
 
-    # 2. Ãâ¼®Ã¼Å© ¹Ù²ãÁÖ´Â ÇÔ¼ö
-    # (Ãâ¼®ÇÏ¸é attendance_data¿¡ ±â·ÏµÊ)
+    # 2. ì¶œì„ì²´í¬ ë°”ê¿”ì£¼ëŠ” í•¨ìˆ˜
+    # (ì¶œì„í•˜ë©´ attendance_dataì— ê¸°ë¡ë¨)
     def mark_attendance(self, student_id, name):
-        # ÀÌ¹Ì Ãâ¼®ºÎ¿¡ ÀÖ´ÂÁö È®ÀÎ
+        # ì´ë¯¸ ì¶œì„ë¶€ì— ìˆëŠ”ì§€ í™•ì¸
         if student_id in self.attendance_data:
-            return "ALREADY" # ÀÌ¹Ì Ãâ¼®ÇÔ
+            return "ALREADY" # ì´ë¯¸ ì¶œì„í•¨
         
-        # Ãâ¼®ºÎ¿¡ »õ·Î Ãß°¡ (ÇĞ¹ø: {ÀÌ¸§, ½Ã°£, Ãâ¼®¿©ºÎ})
+        # ì¶œì„ë¶€ì— ìƒˆë¡œ ì¶”ê°€ (í•™ë²ˆ: {ì´ë¦„, ì‹œê°„, ì¶œì„ì—¬ë¶€})
         self.attendance_data[student_id] = {
             "name": name,
             "attendance": True
         }
-        self._save_attendance() # ÆÄÀÏ ÀúÀå
+        self._save_attendance() # íŒŒì¼ ì €ì¥
         return "SUCCESS"
 
-    # 3. µ¥ÀÌÅÍ È®ÀÎ ÇÔ¼ö (°³ÀÎ »óÅÂ)
+    # 3. ë°ì´í„° í™•ì¸ í•¨ìˆ˜ (ê°œì¸ ìƒíƒœ)
     def get_student_status(self, student_id):
         if student_id in self.attendance_data:
             return True
         return False
 
-    # 4. µ¥ÀÌÅÍ¸¦ ¹ñ¾î³»´Â ÇÔ¼ö (ÀüÃ¼ Ãâ¼® ¸í´Ü)
+    # 4. ë°ì´í„°ë¥¼ ë±‰ì–´ë‚´ëŠ” í•¨ìˆ˜ (ì „ì²´ ì¶œì„ ëª…ë‹¨)
     def get_all_data(self):
-        # µñ¼Å³Ê¸®¸¦ ¸®½ºÆ®·Î º¯È¯ÇØ¼­ ¹İÈ¯
+        # ë”•ì…”ë„ˆë¦¬ë¥¼ ë¦¬ìŠ¤íŠ¸ë¡œ ë³€í™˜í•´ì„œ ë°˜í™˜
         result_list = []
         for s_id, info in self.attendance_data.items():
             entry = {
@@ -82,3 +78,31 @@ class DataManager:
             }
             result_list.append(entry)
         return result_list
+
+# [ì¶”ê°€] 4. í•™ìƒ ì •ë³´ ìˆ˜ì • (PUT)
+    # í•™ë²ˆ(id)ì„ ê¸°ì¤€ìœ¼ë¡œ ì°¾ì•„ì„œ ì´ë¦„(name)ì´ë‚˜ ì¶œì„(attend) ì •ë³´ë¥¼ ë°”ê¿ˆ
+    def update_student(self, student_id, new_name=None, new_attend=None):
+        for student in self.data:
+            if student.get("id") == student_id:
+                # ì´ë¦„ì´ ë“¤ì–´ì™”ìœ¼ë©´ ìˆ˜ì •
+                if new_name is not None:
+                    student["name"] = new_name
+                
+                # ì¶œì„ ì •ë³´ê°€ ë“¤ì–´ì™”ìœ¼ë©´ ìˆ˜ì • (True/False)
+                if new_attend is not None:
+                    student["attend"] = new_attend
+                
+                self._save_data() # ë³€ê²½ì‚¬í•­ ì €ì¥ í•„ìˆ˜!
+                return "SUCCESS"
+        return "NOT_FOUND"
+
+    # [ì¶”ê°€] 5. í•™ìƒ ì‚­ì œ (DELETE)
+    # í•™ë²ˆ(id)ì´ ì¼ì¹˜í•˜ëŠ” í•™ìƒì„ ëª…ë‹¨ì—ì„œ ì œê±°
+    def delete_student(self, student_id):
+        # ë¦¬ìŠ¤íŠ¸ì—ì„œ ì‚­ì œí•  ë•ŒëŠ” ì¸ë±ìŠ¤(ìˆœì„œ)ë¥¼ ì°¾ì•„ì„œ ì§€ìš°ëŠ” ê²Œ ì•ˆì „í•¨
+        for i, student in enumerate(self.data):
+            if student.get("id") == student_id:
+                del self.data[i] # ë¦¬ìŠ¤íŠ¸ì—ì„œ í•´ë‹¹ ìˆœì„œ ì‚­ì œ
+                self._save_data() 
+                return "SUCCESS"
+        return "NOT_FOUND"
