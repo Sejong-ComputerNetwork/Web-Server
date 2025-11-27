@@ -4,16 +4,17 @@ import logging
 import os
 import json
 import urllib.parse
-from DataHandler import DataHandler
 from DataManager import DataManager
+from DataHandler import DataHandler
 import boardHandler as boardHandler
-from FileHandler import getFileAsString, load_css, load_html 
+from FileHandler import getFileAsString, load_html;
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 # [전역 객체 생성]
 dataHandler = DataHandler()   
-manager = DataManager()     
+manager = DataManager()      
 
 def parse_http_request(data):
     lines = data.split("\r\n")
@@ -40,99 +41,113 @@ def build_response(body, status="200 OK", content_type="text/html"):
     )
     return response
 
-# [라우팅 함수]
+
+# [라우팅 함수] 모든 기능 통합 (GET, POST, PUT, DELETE)
+
 def route_http(method, path, body):
-    # 1. 메인 페이지 (GET /) -> 윤희님의 index.html 보여주기
+    
+    # 1. 화면 보여주기 (메인, 관리자, CSS)
     if method == "GET" and path == "/":
         return load_html("index.html"), "200 OK"
-
-    # 2. [추가] CSS 파일 처리 (style.css가 있다면)
-    elif method == "GET" and path.endswith(".css"):
-        filename = path.lstrip("/")
-        return load_css(filename) 
-
-    # 3. [추가] 관리자 페이지 (GET /admin.html)
     elif method == "GET" and path == "/admin.html":
         return load_html("admin.html"), "200 OK"
+    elif method == "GET" and path.endswith(".css"):
+        try:
+            filename = path.lstrip("/")
+            css_path = os.path.join("./templates", filename)
+            with open(css_path, "r", encoding="utf-8") as f:
+                return f.read(), "200 OK", "text/css"
+        except:
+            return "", "404 Not Found", "text/css"
 
-    # 4.출석 체크 API (POST /api/attendance)
+    # 2. 출석 체크 API (POST /api/attendance)
     elif method == "POST" and path == "/api/attendance":
         try:
-            if not body:
-                return json.dumps({"message": "데이터가 없습니다."}), "400 Bad Request", "application/json"
-
-            request_data = json.loads(body)
-            student_id = request_data.get("id")
-            name = request_data.get("name")
-
-            # DataManager에게 일 시키기
-            result = manager.mark_attendance(student_id, name)
+            if not body: return json.dumps({"message": "No data"}), "400 Bad Request", "application/json"
+            data = json.loads(body)
             
-            # 응답 메시지
+            result = manager.mark_attendance(data.get("id"), data.get("name"))
+            
             if result == "SUCCESS":
                 return json.dumps({"message": "출석 성공"}), "200 OK", "application/json"
             elif result == "ALREADY":
-                return json.dumps({"message": "이미 출석 처리가 된 상태입니다."}), "202 Accepted", "application/json"
-            elif result == "NOT_FOUND":
-                return json.dumps({"message": "학번 또는 이름이 일치하지 않습니다."}), "401 Unauthorized", "application/json"
-            
+                return json.dumps({"message": "이미 출석했습니다."}), "202 Accepted", "application/json"
+            else:
+                return json.dumps({"message": "정보 불일치"}), "401 Unauthorized", "application/json"
         except Exception as e:
-            return json.dumps({"message": f"서버 에러: {e}"}), "500 Internal Server Error", "application/json"
+            return json.dumps({"message": f"Error: {e}"}), "500 Error", "application/json"
 
-    # 5. 회원가입 폼 제출 (POST /submit) - 유지
+    # 3. [관리자용 API] 조회, 추가, 수정(PUT), 삭제(DELETE)
+    elif path == "/api/students":
+        
+        # A. 조회 (GET)
+        if method == "GET":
+            return json.dumps(manager.get_all_data(), ensure_ascii=False), "200 OK", "application/json"
+
+        # B. 추가 (POST)
+        elif method == "POST":
+            try:
+                data = json.loads(body)
+                result = manager.add_student(data.get("id"), data.get("name"))
+                if result == "SUCCESS":
+                    return json.dumps({"message": "추가 성공"}), "201 Created", "application/json"
+                elif result == "DUPLICATE":
+                    return json.dumps({"message": "이미 존재하는 학번"}), "409 Conflict", "application/json"
+                else:
+                    return json.dumps({"message": "실패"}), "400 Bad Request", "application/json"
+            except:
+                return json.dumps({"message": "Error"}), "500 Error", "application/json"
+
+        # C.  수정 (PUT)
+        elif method == "PUT":
+            try:
+                data = json.loads(body)
+                # update_student 함수가 DataManager에 있어야 함!
+                result = manager.update_student(data.get("id"), data.get("name"), data.get("attend"))
+                
+                if result == "SUCCESS":
+                    return json.dumps({"message": "수정 성공"}), "200 OK", "application/json"
+                else:
+                    return json.dumps({"message": "학생 없음"}), "404 Not Found", "application/json"
+            except:
+                return json.dumps({"message": "Error"}), "500 Error", "application/json"
+
+        # D. 삭제 (DELETE)
+        elif method == "DELETE":
+            try:
+                data = json.loads(body)
+                # delete_student 함수가 DataManager에 있어야 함!
+                result = manager.delete_student(data.get("id"))
+                
+                if result == "SUCCESS":
+                    return json.dumps({"message": "삭제 성공"}), "200 OK", "application/json"
+                else:
+                    return json.dumps({"message": "학생 없음"}), "404 Not Found", "application/json"
+            except:
+                return json.dumps({"message": "Error"}), "500 Error", "application/json"
+
     elif method == "POST" and path == "/submit":
         params = urllib.parse.parse_qs(body)
         name = params.get("name", [""])[0]
         student_id = params.get("student_id", [""])[0]
-
         try:
             dataHandler.addNewEntry(student_id, name)
         except:
             dataHandler.editEntry(student_id, name)
-
         html = load_html("submit.html")
         html = html.replace("{name}", name).replace("{student_id}", student_id)
         return html, "200 OK"
-
-    # 6. 회원 관리 API (/api/user) - 유지
+    
     elif path.startswith("/api/user"):
         response_dict = {}
         try:
             if method == "GET":
-                if "?" in path:
-                    query = urllib.parse.urlparse(path).query
-                    params = urllib.parse.parse_qs(query)
-                    user_id = params.get("id", [""])[0]
-                    data = dataHandler.getEntry(user_id)
-                    response_dict = {"message":"GET: 유저 정보 조회", "data":data}
-                else:
-                    response_dict = {"message":"GET: 전체 유저 목록"}
+                response_dict = {"message":"GET: 전체 유저 목록"}
                 status = "200 OK"
-            elif method == "POST":
-                data = json.loads(body)
-                dataHandler.addNewEntry(data["id"], data["name"])
-                response_dict = {"message":"POST: 새 유저 생성", "data":data}
-                status = "201 Created"
-            elif method == "PUT":
-                data = json.loads(body)
-                dataHandler.editEntry(data["id"], data["name"])
-                response_dict = {"message":"PUT: 유저 정보 수정", "data":data}
-                status = "200 OK"
-            elif method == "DELETE":
-                data = json.loads(body)
-                os.remove(f"./db/{data['id']}.json")
-                response_dict = {"message":"DELETE: 유저 삭제", "data":data}
-                status = "200 OK"
-            else:
-                response_dict = {"message":"허용되지 않는 메서드"}
-                status = "405 Method Not Allowed"
-        except Exception as e:
-            response_dict = {"message":"오류 발생", "error":str(e)}
-            status = "400 Bad Request"
+        except:
+            pass
+        return json.dumps(response_dict, ensure_ascii=False), "200 OK", "application/json"
 
-        return json.dumps(response_dict, ensure_ascii=False), status, "application/json"
-
-    # 404 처리
     return load_html("404.html"), "404 Not Found"
 
 def handle_client(client_socket, client_address):
@@ -150,13 +165,13 @@ def handle_client(client_socket, client_address):
         if path == "/boardEvent":
             boardHandler.handleBoard(client_socket)
         elif path == "/board":
-            body = load_html(path.lstrip("/") + "/board.html") 
+            body = load_html("/board.html") 
             response = build_response(body, content_type="text/html; charset=utf-8")
 
             client_socket.sendall(response.encode())
             client_socket.close() 
         elif path == "/board.js":
-            body = getFileAsString("./templates/board/board.js") 
+            body = getFileAsString("./templates/board.js") 
             response = build_response(body, content_type="text/javascript; charset=utf-8")
             client_socket.sendall(response.encode())
             client_socket.close() 
@@ -176,11 +191,10 @@ def handle_client(client_socket, client_address):
     finally:
         client_socket.close()
 
+
 def main():
-    # [중요] 127.0.0.1로 고정 (localhost 접속용)
     HOST = '127.0.0.1' 
     PORT = 1234
-
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen(5)

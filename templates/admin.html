@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>관리자 페이지</title>
     <link rel="stylesheet" href="admin-style.css" />
+    <style></style>
   </head>
 
   <body>
@@ -13,12 +14,14 @@
       <!-- 학생 테이블 -->
       <table id="studentTable">
         <tr>
+          <th>삭제</th>
           <th>학번</th>
           <th>이름</th>
           <th>출석</th>
         </tr>
         <!-- JS가 여기에 학생 행 추가 -->
       </table>
+
       <!-- 학생 추가 폼 -->
       <div class="add-student">
         <label>학번:</label>
@@ -28,67 +31,148 @@
         <button onclick="addStudent()">학생 추가</button>
       </div>
 
-      <button id="saveBtn" onclick="saveChanges()">변경 사항 저장</button>
+      <button id="editBtn" onclick="toggleEditMode()">편집</button>
     </div>
 
     <script>
+      let editMode = false;
+      let students = [];
+
       window.onload = loadStudents;
 
-      // 학생 목록 GET
+      //  학생 목록 GET + 더미 데이터
       async function loadStudents() {
         const res = await fetch("/api/students");
-        const students = await res.json();
+        if (!res.ok) throw new Error("API Error");
+
+        students = await res.json();
+        // try {
+        // } catch (e) {
+        //   console.warn("API 실패 → 더미 데이터 사용");
+        //   students = [
+        //     { id: "2023001", name: "김철수", attend: true },
+        //     { id: "2023002", name: "이영희", attend: false },
+        //     { id: "2023003", name: "박민수", attend: true },
+        //   ];
+        // }
+
+        renderTable();
+      }
+
+      //  테이블 렌더링
+      function renderTable() {
         const table = document.getElementById("studentTable");
 
-        // 테이블 초기화 (헤더 제외)
+        // 헤더 제외하고 싹 삭제
         table
           .querySelectorAll("tr:not(:first-child)")
           .forEach((tr) => tr.remove());
 
-        students.forEach((stu) => {
+        students.forEach((stu, index) => {
           const row = document.createElement("tr");
-          row.innerHTML = `
-          <td>${stu.id}</td>
-          <td>${stu.name}</td>
-          <td><input type="checkbox" class="circle-check" ${
-            stu.attend ? "checked" : ""
-          }></td>
-        `;
+
+          if (!editMode) {
+            // 기본모드: 입력 불가 + 삭제 버튼 없음
+            row.innerHTML = `
+              <td></td>
+              <td>${stu.id}</td>
+              <td>${stu.name}</td>
+              <td><input type="checkbox" class="circle-check" ${
+                stu.attend ? "checked" : ""
+              } disabled></td>
+            `;
+          } else {
+            // 편집모드: input 활성화 + 삭제 버튼 표시
+            row.innerHTML = `
+              <td><button class="delete-btn" onclick="deleteStudent(${index})">삭제</button></td>
+              <td><input class="edit-id" value="${stu.id}"></td>
+              <td><input class="edit-name" value="${stu.name}"></td>
+              <td><input type="checkbox" class="edit-attend" ${
+                stu.attend ? "checked" : ""
+              }></td>
+            `;
+          }
+
           table.appendChild(row);
         });
       }
 
-      // 학생 추가
+      //  학생 삭제
+      function deleteStudent(index) {
+        // 여기에 DELETE API 연결!!
+        loadStudents();
+        // students.splice(index, 1);
+        // renderTable();
+      }
+
+      //  학생 추가
       async function addStudent() {
         const id = document.getElementById("newId").value.trim();
         const name = document.getElementById("newName").value.trim();
 
         if (!id || !name) {
-          alert("학번과 이름을 모두 입력하세요.");
+          alert("학번과 이름을 입력하세요");
           return;
         }
 
-        // POST 요청으로 서버에 학생 추가
-        const res = await fetch("/api/students", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name, attend: false }),
-        });
+        try {
+          // POST 요청으로 서버에 학생 추가
+          const res = await fetch("/api/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, name, attend: false }),
+          });
 
-        if (res.status === 201) {
-          alert("학생이 추가되었습니다.");
-          document.getElementById("newId").value = "";
-          document.getElementById("newName").value = "";
-          loadStudents(); // 테이블 갱신
-        } else {
-          const data = await res.json();
-          alert(`오류: ${data.message}`);
+          if (res.status === 201) {
+            alert("학생이 추가되었습니다.");
+            document.getElementById("newId").value = "";
+            document.getElementById("newName").value = "";
+            loadStudents(); // 테이블 갱신
+          } else {
+            const data = await res.json();
+            alert(`오류: ${data.message}`);
+          }
+        } catch (err) {
+          console.error("학생 추가 중 오류:", err);
+          alert("학생 추가에 실패했습니다.");
         }
       }
 
-      // 저장 버튼 (PUT API) — 서버 구현 필요
-      function saveChanges() {
-        alert("PUT API로 변경사항을 서버에 저장할 예정!");
+      //  편집 / 저장 전환
+      function toggleEditMode() {
+        const btn = document.getElementById("editBtn");
+
+        if (!editMode) {
+          // ---- 편집 모드 ON ----
+          editMode = true;
+          btn.innerText = "변경사항 저장";
+          btn.classList.add("edit");
+
+          renderTable();
+        } else {
+          // ---- 저장 (편집모드 OFF) ----
+          const table = document.getElementById("studentTable");
+
+          // 새 값들 테이블에서 읽어오기
+          const newIds = table.querySelectorAll(".edit-id");
+          const newNames = table.querySelectorAll(".edit-name");
+          const newAttend = table.querySelectorAll(".edit-attend");
+
+          // students = students.map((stu, i) => ({
+          //   id: newIds[i].value,
+          //   name: newNames[i].value,
+          //   attend: newAttend[i].checked,
+          // }));
+
+          // 여기에 PUT API 연결!!
+
+          editMode = false;
+          btn.innerText = "편집";
+          btn.classList.remove("edit");
+
+          loadStudents();
+          alert("변경 사항이 저장되었습니다!");
+        }
       }
     </script>
   </body>
