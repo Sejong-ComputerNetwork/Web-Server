@@ -4,57 +4,16 @@ import logging
 import os
 import json
 import urllib.parse
-from DataManager import DataManager 
+from DataHandler import DataHandler
+from DataManager import DataManager
+import boardHandler
+from FileHandler import getFileAsString, load_css, load_html 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class DataHandler:
-    _dbPath = "./db/"
-
-    def __init__(self):
-        if not os.path.exists(self._dbPath):
-            os.makedirs(self._dbPath)
-
-    def addNewEntry(self, newId, newName):
-        newEntry = {"id": newId, "name": newName}
-        try:
-            with open(self._dbPath + "{}.json".format(newId), "x", encoding="utf-8") as fp:
-                json.dump(newEntry , fp, indent=4, ensure_ascii=False) 
-        except FileExistsError:
-            print("id:{} already exists".format(newId))
-            raise
-
-    def editEntry(self, id, newName): 
-        try:
-            data = self.getEntry(id) 
-        except:
-            print("failed to get data in editEntry")
-            raise
-
-        data["name"] = newName
-        with open(self._dbPath + "{}.json".format(id), "w", encoding="utf-8") as fp:
-            json.dump(data, fp, indent=4, ensure_ascii=False)
-
-    def getEntry(self, id):
-        try:
-            with open(self._dbPath + "{}.json".format(id), "r", encoding="utf-8") as fp:
-                data = json.load(fp) 
-        except FileNotFoundError:
-            print("id:{} does not exists".format(id))
-            raise
-        return data
-
 # [전역 객체 생성]
 dataHandler = DataHandler()   
-manager = DataManager()      
-
-def load_html(filename):
-    filepath = os.path.join("templates", filename)
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "<h1>404 File Not Found</h1>"
+manager = DataManager()     
 
 def parse_http_request(data):
     lines = data.split("\r\n")
@@ -83,20 +42,14 @@ def build_response(body, status="200 OK", content_type="text/html"):
 
 # [라우팅 함수]
 def route_http(method, path, body):
-    
     # 1. 메인 페이지 (GET /) -> 윤희님의 index.html 보여주기
     if method == "GET" and path == "/":
         return load_html("index.html"), "200 OK"
 
     # 2. [추가] CSS 파일 처리 (style.css가 있다면)
     elif method == "GET" and path.endswith(".css"):
-        try:
-            filename = path.lstrip("/")
-            css_path = os.path.join("./templates", filename)
-            with open(css_path, "r", encoding="utf-8") as f:
-                return f.read(), "200 OK", "text/css"
-        except:
-            return "", "404 Not Found", "text/css"
+        filename = path.lstrip("/")
+        return load_css(filename) 
 
     # 3. [추가] 관리자 페이지 (GET /admin.html)
     elif method == "GET" and path == "/admin.html":
@@ -106,7 +59,7 @@ def route_http(method, path, body):
     elif method == "POST" and path == "/api/attendance":
         try:
             if not body:
-                 return json.dumps({"message": "데이터가 없습니다."}), "400 Bad Request", "application/json"
+                return json.dumps({"message": "데이터가 없습니다."}), "400 Bad Request", "application/json"
 
             request_data = json.loads(body)
             student_id = request_data.get("id")
@@ -193,17 +146,31 @@ def handle_client(client_socket, client_address):
         method, path, body = parse_http_request(data)
         logging.info(f"{method} {path}")
 
-        result = route_http(method, path, body)
-        
-        # 3개 반환값 처리 (JSON 대응)
-        if len(result) == 2:
-            body, status = result
-            content_type = "text/html"
-        else:
-            body, status, content_type = result
 
-        response = build_response(body, status, content_type)
-        client_socket.sendall(response.encode("utf-8"))
+        if path == "/boardEvent":
+            boardHandler.handleBoard(client_socket)
+        elif path == "/board":
+            body = load_html(path.lstrip("/") + "/board.html") 
+            response = build_response(body, content_type="text/html; charset=utf-8")
+
+            client_socket.sendall(response.encode())
+            client_socket.close() 
+        elif path == "/board.js":
+            body = getFileAsString("./templates/board/board.js") 
+            response = build_response(body, content_type="text/javascript; charset=utf-8")
+            client_socket.sendall(response.encode())
+            client_socket.close() 
+        else:
+            result = route_http(method, path, body)
+            # 3개 반환값 처리 (JSON 대응)
+            if len(result) == 2:
+                body, status = result
+                content_type = "text/html"
+            else:
+                body, status, content_type = result
+
+            response = build_response(body, status, content_type)
+            client_socket.sendall(response.encode("utf-8"))
     except Exception as e:
         logging.error(f"클라이언트 처리 중 오류: {e}")
     finally:
