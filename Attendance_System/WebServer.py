@@ -6,7 +6,7 @@ import json
 import urllib.parse
 from DataHandler import DataHandler
 from DataManager import DataManager
-import boardHandler
+import boardHandler as boardHandler
 from FileHandler import getFileAsString, load_css, load_html 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
