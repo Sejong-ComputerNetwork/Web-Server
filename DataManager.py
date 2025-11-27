@@ -2,51 +2,108 @@ import json
 import os
 
 class DataManager:
-    def __init__(self):
-        self.filename = "./db/student-info.json"
-        self.data = [] 
-        self._load_data()
-
-    def _load_data(self):
-        if not os.path.exists(self.filename):
-            print(f"[알림] {self.filename} 파일이 없습니다. 빈 리스트로 시작합니다.")
-            self.data = []
-        else:
-            try:
-                with open(self.filename, 'r', encoding='utf-8') as f:
-                    self.data = json.load(f)
-                print(f"[로드] {len(self.data)}명의 학생 정보를 불러왔습니다.")
-            except Exception as e:
-                print(f"[에러] DB 로딩 실패: {e}")
-                self.data = []
-
-    def _save_data(self):
-        with open(self.filename, 'w', encoding='utf-8') as f:
-            json.dump(self.data, f, indent=4, ensure_ascii=False)
-
-    def mark_attendance(self, student_id, name):
-        # 1. 리스트를 돌면서 해당 학번과 이름이 맞는지 찾음
-        found_student = None
-        for student in self.data:
-            # json 파일의 키값("id", "name")과 비교
-            if student.get("id") == student_id and student.get("name") == name:
-                found_student = student
-                break
+    def __init__(self, attendance_file="./db/student-info.json"):
+        self.attendance_file = attendance_file # 출석 기록용 파일 (새로 생김)
+        self.db_folder = "./db/" # 기존 학생 정보가 있는 폴더
+        self.attendance_data = {} # 메모리에 띄울 출석부
         
-        # 2. 학생이 없으면 에러 (DB에 없는 사람)
-        if not found_student:
-            return "NOT_FOUND"
+        self._load_attendance() # 서버 켜질 때 출석부 준비
 
-        # 3. 이미 출석했는지 확인 ("attend" 키 사용)
-        if found_student.get("attend") is True:
-            return "ALREADY"
+    # [내부함수] 오늘의 출석부 파일 읽어오기
+    def _load_attendance(self):
+        if not os.path.exists(self.attendance_file):
+            # 파일이 없으면 빈 출석부 생성
+            self.attendance_data = {}
+            self._save_attendance()
+            print(f"[초기화] {self.attendance_file} 출석부를 새로 만들었습니다.")
+        else:
+            with open(self.attendance_file, 'r', encoding='utf-8') as f:
+                self.attendance_data = json.load(f)
+            print(f"[로드] 출석 기록을 불러왔습니다.")
 
-        # 4. 출석 처리 및 저장
-        found_student["attend"] = True
-        self._save_data()
+    # [내부함수] 출석부 저장하기
+    def _save_attendance(self):
+        with open(self.attendance_file, 'w', encoding='utf-8') as f:
+            json.dump(self.attendance_data, f, indent=4, ensure_ascii=False)
+
+    # 1. 이름 & 학번 확인 함수 (기존 db 폴더 활용!)
+    def verify_student(self, student_id, name):
+        # 1) db 폴더에 해당 학번 파일이 있는지 확인
+        target_file = os.path.join(self.db_folder, f"{student_id}.json")
+        
+        if os.path.exists(target_file):
+            # 2) 파일이 있으면 열어서 이름이 맞는지 확인
+            try:
+                with open(target_file, 'r', encoding='utf-8') as f:
+                    user_info = json.load(f)
+                    # db 파일 안의 "name"과 입력받은 name이 같은지?
+                    if user_info.get("name") == name:
+                        return True # 인증 성공!
+            except Exception as e:
+                print(f"[에러] 파일 읽기 실패: {e}")
+                return False
+        
+        return False # 파일이 없거나 이름이 틀림
+
+    # 2. 출석체크 바꿔주는 함수
+    # (출석하면 attendance_data에 기록됨)
+    def mark_attendance(self, student_id, name):
+        # 이미 출석부에 있는지 확인
+        if student_id in self.attendance_data:
+            return "ALREADY" # 이미 출석함
+        
+        # 출석부에 새로 추가 (학번: {이름, 시간, 출석여부})
+        self.attendance_data[student_id] = {
+            "name": name,
+            "attendance": True
+        }
+        self._save_attendance() # 파일 저장
         return "SUCCESS"
 
-# 테스트 코드
-if __name__ == "__main__":
-    dm = DataManager()
-    print(dm.mark_attendance("2024001", "김철수"))
+    # 3. 데이터 확인 함수 (개인 상태)
+    def get_student_status(self, student_id):
+        if student_id in self.attendance_data:
+            return True
+        return False
+
+    # 4. 데이터를 뱉어내는 함수 (전체 출석 명단)
+    def get_all_data(self):
+        # 딕셔너리를 리스트로 변환해서 반환
+        print(self.attendance_data)
+        result_list = []
+        for s_id, info in self.attendance_data.items():
+            entry = {
+                "id": s_id,
+                "name": info["name"],
+                "attendance": info["attendance"]
+            }
+            result_list.append(entry)
+        return result_list
+
+# [추가] 4. 학생 정보 수정 (PUT)
+    # 학번(id)을 기준으로 찾아서 이름(name)이나 출석(attend) 정보를 바꿈
+    def update_student(self, student_id, new_name=None, new_attend=None):
+        for student in self.data:
+            if student.get("id") == student_id:
+                # 이름이 들어왔으면 수정
+                if new_name is not None:
+                    student["name"] = new_name
+                
+                # 출석 정보가 들어왔으면 수정 (True/False)
+                if new_attend is not None:
+                    student["attend"] = new_attend
+                
+                self._save_data() # 변경사항 저장 필수!
+                return "SUCCESS"
+        return "NOT_FOUND"
+
+    # [추가] 5. 학생 삭제 (DELETE)
+    # 학번(id)이 일치하는 학생을 명단에서 제거
+    def delete_student(self, student_id):
+        # 리스트에서 삭제할 때는 인덱스(순서)를 찾아서 지우는 게 안전함
+        for i, student in enumerate(self.data):
+            if student.get("id") == student_id:
+                del self.data[i] # 리스트에서 해당 순서 삭제
+                self._save_data() 
+                return "SUCCESS"
+        return "NOT_FOUND"

@@ -4,61 +4,112 @@
     <meta charset="UTF-8" />
     <title>관리자 페이지</title>
     <link rel="stylesheet" href="admin-style.css" />
+    <style>
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        text-align: center;
+        font-family: sans-serif;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      .del-btn {
+        background-color: #ff4444;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .del-btn:hover {
+        background-color: #cc0000;
+      }
+      .add-student {
+        margin-bottom: 20px;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 5px;
+      }
+    </style>
   </head>
 
   <body>
     <div class="container">
-      <h2>출석 현황</h2>
+      <h2>출석 현황 관리</h2>
 
-      <!-- 학생 테이블 -->
-      <table id="studentTable">
-        <tr>
-          <th>학번</th>
-          <th>이름</th>
-          <th>출석</th>
-        </tr>
-        <!-- JS가 여기에 학생 행 추가 -->
-      </table>
-      <!-- 학생 추가 폼 -->
       <div class="add-student">
-        <label>학번:</label>
-        <input type="text" id="newId" placeholder="학번 입력" />
-        <label>이름:</label>
-        <input type="text" id="newName" placeholder="이름 입력" />
-        <button onclick="addStudent()">학생 추가</button>
+        <h3>학생 추가</h3>
+        <input type="text" id="newId" placeholder="학번 (예: 2024001)" />
+        <input type="text" id="newName" placeholder="이름 (예: 홍길동)" />
+        <button onclick="addStudent()">추가하기</button>
       </div>
 
-      <button id="saveBtn" onclick="saveChanges()">변경 사항 저장</button>
+      <table id="studentTable">
+        <thead>
+          <tr>
+            <th>학번</th>
+            <th>이름</th>
+            <th>출석 체크</th>
+            <th>삭제</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+
+      <p style="color: gray; font-size: 0.9em">
+        * 체크박스를 누르면 즉시 수정(PUT)됩니다.
+      </p>
+      <a href="/">메인으로 돌아가기</a>
     </div>
 
     <script>
       window.onload = loadStudents;
 
-      // 학생 목록 GET
+      // 1. [GET] 학생 목록 불러오기
       async function loadStudents() {
-        const res = await fetch("/api/students");
-        const students = await res.json();
-        const table = document.getElementById("studentTable");
+        try {
+          const res = await fetch("/api/students");
+          const students = await res.json();
+          const tbody = document.getElementById("tableBody");
 
-        // 테이블 초기화 (헤더 제외)
-        table
-          .querySelectorAll("tr:not(:first-child)")
-          .forEach((tr) => tr.remove());
+          // 기존 목록 비우기
+          tbody.innerHTML = "";
 
-        students.forEach((stu) => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-          <td>${stu.id}</td>
-          <td>${stu.name}</td>
-          <td><input type="checkbox" class="circle-check" ${
-            stu.attend ? "checked" : ""
-          }></td>
-        `;
-          table.appendChild(row);
-        });
+          students.forEach((stu) => {
+            const row = document.createElement("tr");
+
+            // 체크박스 상태 확인
+            const isChecked = stu.attend ? "checked" : "";
+
+            row.innerHTML = `
+                <td>${stu.id}</td>
+                <td>${stu.name}</td>
+                <td>
+                    <input type="checkbox" onchange="toggleAttendance('${stu.id}', this.checked)" ${isChecked}>
+                </td>
+                <td>
+                    <button class="del-btn" onclick="deleteStudent('${stu.id}')">삭제</button>
+                </td>
+              `;
+            tbody.appendChild(row);
+          });
+        } catch (err) {
+          console.error("데이터 로드 실패:", err);
+        }
       }
 
-      // 학생 추가
+      // 2. [POST] 학생 추가
       async function addStudent() {
         const id = document.getElementById("newId").value.trim();
         const name = document.getElementById("newName").value.trim();
@@ -68,27 +119,59 @@
           return;
         }
 
-        // POST 요청으로 서버에 학생 추가
         const res = await fetch("/api/students", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, name, attend: false }),
+          body: JSON.stringify({ id: id, name: name }),
         });
 
         if (res.status === 201) {
           alert("학생이 추가되었습니다.");
           document.getElementById("newId").value = "";
           document.getElementById("newName").value = "";
-          loadStudents(); // 테이블 갱신
+          loadStudents(); // 목록 새로고침
         } else {
           const data = await res.json();
           alert(`오류: ${data.message}`);
         }
       }
 
-      // 저장 버튼 (PUT API) — 서버 구현 필요
-      function saveChanges() {
-        alert("PUT API로 변경사항을 서버에 저장할 예정!");
+      // 3. [PUT] 출석 상태 수정 (체크박스 누를 때 바로 실행)
+      async function toggleAttendance(id, isChecked) {
+        // 서버로 수정 요청 보냄
+        const res = await fetch("/api/students", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: id,
+            attend: isChecked, // true 또는 false
+          }),
+        });
+
+        if (res.status !== 200) {
+          alert("수정 실패!");
+          loadStudents(); // 실패하면 원래대로 되돌림
+        } else {
+          console.log(id + " 수정 완료");
+        }
+      }
+
+      // 4. [DELETE] 학생 삭제
+      async function deleteStudent(id) {
+        if (!confirm("정말 삭제하시겠습니까?")) return;
+
+        const res = await fetch("/api/students", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: id }),
+        });
+
+        if (res.status === 200) {
+          alert("삭제되었습니다.");
+          loadStudents(); // 목록 새로고침
+        } else {
+          alert("삭제 실패");
+        }
       }
     </script>
   </body>

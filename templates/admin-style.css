@@ -66,8 +66,8 @@ th {
   border-radius: 50%;
 }
 
-/* 저장 버튼 */
-#saveBtn {
+/* 수정 버튼 */
+#editBtn {
   width: 100%;
   padding: 12px;
   margin-top: 20px;
@@ -75,11 +75,10 @@ th {
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  background-color: #4caf50;
   color: #fff;
 }
 
-#saveBtn:hover {
+#editBtn:hover {
   background-color: #45a049;
 }
 
@@ -119,4 +118,27 @@ th {
 
 .add-student button:hover {
   background-color: #45a049;
+}
+
+.student-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.delete-btn {
+  background: rgb(223, 70, 70);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.delete-btn:hover {
+  background: rgb(180, 40, 40);
+}
+#editBtn.edit {
+  background: green;
+  color: white;
 }
