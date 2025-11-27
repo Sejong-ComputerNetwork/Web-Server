@@ -165,13 +165,13 @@ def handle_client(client_socket, client_address):
         if path == "/boardEvent":
             boardHandler.handleBoard(client_socket)
         elif path == "/board":
-            body = load_html(path.lstrip("/") + "/board.html") 
+            body = load_html("/board.html") 
             response = build_response(body, content_type="text/html; charset=utf-8")
 
             client_socket.sendall(response.encode())
             client_socket.close() 
         elif path == "/board.js":
-            body = getFileAsString("./templates/board/board.js") 
+            body = getFileAsString("./templates/board.js") 
             response = build_response(body, content_type="text/javascript; charset=utf-8")
             client_socket.sendall(response.encode())
             client_socket.close() 
