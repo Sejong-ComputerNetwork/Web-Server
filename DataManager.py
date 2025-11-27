@@ -13,7 +13,7 @@ class DataManager:
     def _load_attendance(self):
         if not os.path.exists(self.attendance_file):
             # 파일이 없으면 빈 출석부 생성
-            self.attendance_data = {}
+            self.attendance_data = []
             self._save_attendance()
             print(f"[초기화] {self.attendance_file} 출석부를 새로 만들었습니다.")
         else:
@@ -49,10 +49,17 @@ class DataManager:
     # (출석하면 attendance_data에 기록됨)
     def mark_attendance(self, student_id, name):
         # 이미 출석부에 있는지 확인
-        if student_id in self.attendance_data:
-            return "ALREADY" # 이미 출석함
-        
-        # 출석부에 새로 추가 (학번: {이름, 시간, 출석여부})
+        allStudentId = [studentEntry["id"] for studentEntry in self.attendance_data]
+        if str(student_id) in allStudentId:
+            for studentEntry in self.attendance_data:
+                if studentEntry["id"] == str(student_id) and studentEntry["attend"]:
+                    return "ALREADY" # 이미 출석함
+                elif studentEntry["id"] == str(student_id):
+                    studentEntry["attend"] = True
+                    self._save_attendance() # 파일 저장
+                    return "SUCCESS" 
+            
+            # 출석부에 새로 추가 (학번: {이름, 시간, 출석여부})
         self.attendance_data[student_id] = {
             "name": name,
             "attendance": True
@@ -62,7 +69,9 @@ class DataManager:
 
     # 3. 데이터 확인 함수 (개인 상태)
     def get_student_status(self, student_id):
-        if student_id in self.attendance_data:
+        allStudentId = [studentEntry["id"] for studentEntry in self.attendance_data]
+
+        if str(student_id) in allStudentId:
             return True
         return False
 
@@ -71,11 +80,11 @@ class DataManager:
         # 딕셔너리를 리스트로 변환해서 반환
         print(self.attendance_data)
         result_list = []
-        for s_id, info in self.attendance_data.items():
+        for studentEntry in self.attendance_data:
             entry = {
-                "id": s_id,
-                "name": info["name"],
-                "attendance": info["attendance"]
+                "id": studentEntry["id"],
+                "name": studentEntry["name"],
+                "attendance": studentEntry["attend"]
             }
             result_list.append(entry)
         return result_list
@@ -83,8 +92,8 @@ class DataManager:
 # [추가] 4. 학생 정보 수정 (PUT)
     # 학번(id)을 기준으로 찾아서 이름(name)이나 출석(attend) 정보를 바꿈
     def update_student(self, student_id, new_name=None, new_attend=None):
-        for student in self.data:
-            if student.get("id") == student_id:
+        for student in self.attendance_data:
+            if student["id"] == str(student_id):
                 # 이름이 들어왔으면 수정
                 if new_name is not None:
                     student["name"] = new_name
@@ -93,7 +102,7 @@ class DataManager:
                 if new_attend is not None:
                     student["attend"] = new_attend
                 
-                self._save_data() # 변경사항 저장 필수!
+                self._save_attendance() # 변경사항 저장 필수!
                 return "SUCCESS"
         return "NOT_FOUND"
 
@@ -101,9 +110,9 @@ class DataManager:
     # 학번(id)이 일치하는 학생을 명단에서 제거
     def delete_student(self, student_id):
         # 리스트에서 삭제할 때는 인덱스(순서)를 찾아서 지우는 게 안전함
-        for i, student in enumerate(self.data):
-            if student.get("id") == student_id:
+        for i, student in enumerate(self.attendance_data):
+            if student["id"] == student_id:
                 del self.data[i] # 리스트에서 해당 순서 삭제
-                self._save_data() 
+                self._save_attendance() 
                 return "SUCCESS"
         return "NOT_FOUND"
