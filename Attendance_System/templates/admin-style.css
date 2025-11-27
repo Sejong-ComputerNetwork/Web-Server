@@ -138,3 +138,7 @@ th {
 .delete-btn:hover {
   background: rgb(180, 40, 40);
 }
+#editBtn.edit {
+  background: green;
+  color: white;
+}

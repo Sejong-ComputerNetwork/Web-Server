@@ -4,19 +4,7 @@
     <meta charset="UTF-8" />
     <title>관리자 페이지</title>
     <link rel="stylesheet" href="admin-style.css" />
-    <style>
-      #editBtn.edit {
-        background: green;
-        color: white;
-      }
-      .delete-btn {
-        background: red;
-        color: white;
-        border: none;
-        padding: 3px 8px;
-        cursor: pointer;
-      }
-    </style>
+    <style></style>
   </head>
 
   <body>
@@ -118,21 +106,36 @@
       }
 
       //  학생 추가
-      function addStudent() {
+      async function addStudent() {
         const id = document.getElementById("newId").value.trim();
         const name = document.getElementById("newName").value.trim();
 
-        if (!id || !name) return alert("학번과 이름을 입력하세요");
+        if (!id || !name) {
+          alert("학번과 이름을 입력하세요");
+          return;
+        }
 
-        //POST API 연결!!
+        try {
+          // POST 요청으로 서버에 학생 추가
+          const res = await fetch("/api/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, name, attend: false }),
+          });
 
-        // students.push({ id, name, attend: false });
-        // renderTable();
-
-        loadStudents();
-
-        document.getElementById("newId").value = "";
-        document.getElementById("newName").value = "";
+          if (res.status === 201) {
+            alert("학생이 추가되었습니다.");
+            document.getElementById("newId").value = "";
+            document.getElementById("newName").value = "";
+            loadStudents(); // 테이블 갱신
+          } else {
+            const data = await res.json();
+            alert(`오류: ${data.message}`);
+          }
+        } catch (err) {
+          console.error("학생 추가 중 오류:", err);
+          alert("학생 추가에 실패했습니다.");
+        }
       }
 
       //  편집 / 저장 전환
