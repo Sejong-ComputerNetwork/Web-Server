@@ -165,7 +165,7 @@ def handle_client(client_socket, client_address):
         if path == "/boardEvent":
             boardHandler.handleBoard(client_socket)
         elif path == "/board":
-            body = load_html("/board.html") 
+            body = load_html("board.html") 
             response = build_response(body, content_type="text/html; charset=utf-8")
 
             client_socket.sendall(response.encode())

@@ -19,7 +19,10 @@ def buildBoard(fullChart):
     for student in fullChart:
         studentId = student["id"] 
         didAttend = student["attend"]
-        result[studentId] = didAttend
+        result[studentId] = {
+            "name": student["name"],
+            "status": didAttend
+        } 
 
     return result
 
@@ -35,13 +38,13 @@ def handleBoard(client_socket):
     client_socket.sendall(header.encode())
     
     studentInfo = json.loads(FileHandler.getFileAsString("./db/student-info.json"))
-    cache = buildBoard(studentInfo)
+    cache = None
 
     while True:
         studentInfo = json.loads(FileHandler.getFileAsString("./db/student-info.json"))
         updated = buildBoard(studentInfo)
-
-        if compareDict(cache, updated):
+        
+        if cache != None and compareDict(cache, updated):
             time.sleep(1)
             continue
 
